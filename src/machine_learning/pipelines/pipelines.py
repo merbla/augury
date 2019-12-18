@@ -37,7 +37,7 @@ def create_pipelines(start_date, end_date, **_kwargs) -> Dict[str, Pipeline]:
         "legacy": create_full_pipeline(
             start_date,
             end_date,
-            match_pipeline_func=create_legacy_match_pipeline,
+            match_data_set="final_legacy_match_data",
             feature_calcs=LEGACY_FEATURE_CALCS,
             final_data_set="legacy_model_data",
             category_cols=CATEGORY_COLS,

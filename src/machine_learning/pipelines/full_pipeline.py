@@ -17,24 +17,29 @@ DEFAULT_FEATURE_CALCS = [
 def create_full_pipeline(
     start_date: str,
     end_date: str,
-    match_pipeline_func=create_match_pipeline,
+    match_data_set="final_match_data",
     feature_calcs=DEFAULT_FEATURE_CALCS,
     final_data_set="model_data",
     category_cols=CATEGORY_COLS + ["prev_match_oppo_team"],
 ):
     return Pipeline(
         [
-            create_betting_pipeline(start_date, end_date),
-            match_pipeline_func(start_date, end_date),
-            create_player_pipeline(start_date, end_date),
+            node(common.convert_to_data_frame, "final_betting_data", "betting_df"),
+            node(common.convert_to_data_frame, match_data_set, "match_df"),
+            node(common.convert_to_data_frame, "final_player_data", "player_df"),
             node(
                 common.combine_data(axis=1),
-                ["final_betting_data", "final_match_data", "final_player_data"],
+                ["betting_data_df", "match_data_df", "player_data_df"],
                 "joined_data",
             ),
             node(
-                feature_calculation.feature_calculator(feature_calcs),
+                common.filter_by_date(start_date, end_date),
                 "joined_data",
+                "filtered_data",
+            ),
+            node(
+                feature_calculation.feature_calculator(feature_calcs),
+                "filtered_data",
                 "data_a",
             ),
             node(
