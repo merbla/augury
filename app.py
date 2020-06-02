@@ -1,13 +1,10 @@
 """API routes and request resolvers for a Bottle app."""
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 import os
 import sys
 from datetime import date
-from threading import Thread
-from urllib.parse import urljoin
 
-import requests
 from bottle import Bottle, run, request, response
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -17,7 +14,6 @@ if SRC_PATH not in sys.path:
     sys.path.append(SRC_PATH)
 
 from augury import api
-from augury.types import YearRange
 
 
 IS_PRODUCTION = os.getenv("PYTHON_ENV", "").lower() == "production"
@@ -75,25 +71,6 @@ def run_pipelines():
     api.run_pipelines(pipelines)
 
 
-def _send_predictions(
-    year_range: YearRange,
-    round_number: Optional[int] = None,
-    ml_model_names: Optional[List[str]] = None,
-    train=False,
-) -> None:
-    prediction_data = api.make_predictions(
-        year_range,
-        round_number=round_number,
-        ml_model_names=ml_model_names,
-        train=train,
-    )
-
-    url = urljoin(TIPRESIAS_HOST, "predictions")
-    headers = {"Authorization": f'Bearer {os.environ["TIPRESIAS_APP_TOKEN"]}'}
-
-    requests.post(url, json=prediction_data, headers=headers)
-
-
 @app.route("/predictions")
 def predictions():
     """
@@ -134,33 +111,19 @@ def predictions():
     round_number = None if round_number in [None, ""] else int(round_number)
 
     ml_models_param = request.query.ml_models
-    ml_models_param = (
+    ml_model_names = (
         None if ml_models_param in [None, ""] else ml_models_param.split(",")
     )
 
     train_models_param = request.query.train_models
     train_models = train_models_param.lower() == "true"
 
-    thread = Thread(
-        target=_send_predictions,
-        args=(year_range,),
-        kwargs={
-            "round_number": round_number,
-            "ml_model_names": ml_models_param,
-            "train": train_models,
-        },
+    return api.make_predictions(
+        year_range,
+        round_number=round_number,
+        ml_model_names=ml_model_names,
+        train=train_models,
     )
-    thread.start()
-
-    response.status = 202
-
-    return {
-        "data": {
-            "ml_models": ml_models_param,
-            "round_number": round_number,
-            "year_range": year_range,
-        }
-    }
 
 
 @app.route("/fixtures")
