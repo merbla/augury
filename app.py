@@ -56,6 +56,25 @@ def _request_is_authorized(http_request) -> bool:
     return True
 
 
+@app.route("/pipelines")
+def run_pipelines():
+    """
+    Runs the requested data pipelines and save the resulting data sets.
+
+    Params:
+    -------
+    Request with the following URL params:
+        pipelines: Comma-separated names of the pipelines to run. Defaults to all
+            end-to-end pipelines necessary for model predictions.
+    """
+    pipelines_param = request.query.pipelines
+    pipelines = (
+        pipelines_param if pipelines_param is None else pipelines_param.split(",")
+    )
+
+    api.run_pipelines(pipelines)
+
+
 def _send_predictions(
     year_range: YearRange,
     round_number: Optional[int] = None,

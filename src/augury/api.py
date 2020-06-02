@@ -5,13 +5,13 @@ from datetime import date
 
 import pandas as pd
 from mypy_extensions import TypedDict
-from kedro.context import load_context, KedroContext
+from kedro.context import load_context
 import simplejson
 
 from augury.data_import import match_data
 from augury.nodes import match
 from augury.predictions import Predictor
-from augury.types import YearRange, MLModelDict
+from augury.types import YearRange
 from augury.settings import ML_MODELS, PREDICTION_DATA_START_DATE, BASE_DIR
 
 
@@ -20,7 +20,7 @@ ApiResponse = TypedDict(
 )
 
 END_OF_YEAR = f"{date.today().year}-12-31"
-PIPELINE_NAMES = {"model_data": "full", "legacy_model_data": "legacy"}
+PIPELINES = ["full", "legacy"]
 
 
 def _clean_data_frame_for_json(data_frame: pd.DataFrame) -> List[Dict[str, Any]]:
@@ -40,11 +40,22 @@ def _api_response(data: Union[pd.DataFrame, Dict[str, Any]]) -> ApiResponse:
     return {"data": response_data}
 
 
-def _run_pipelines(context: KedroContext, ml_models: List[MLModelDict]):
-    data_set_names = {ml_model["data_set"] for ml_model in ml_models}
+def run_pipelines(pipelines: Optional[List[str]] = None):
+    """
+    Runs the requested data pipelines and save the resulting data sets.
 
-    for data_set_name in data_set_names:
-        context.run(pipeline_name=PIPELINE_NAMES[data_set_name])
+    Params:
+    -------
+    pipelines: Names of the pipelines to run.
+    """
+    context = load_context(
+        BASE_DIR, start_date=PREDICTION_DATA_START_DATE, end_date=END_OF_YEAR,
+    )
+
+    pipelines = pipelines or PIPELINES
+
+    for pipeline in pipelines:
+        context.run(pipeline_name=pipeline)
 
 
 def make_predictions(
@@ -78,8 +89,6 @@ def make_predictions(
         ml_models = [
             ml_model for ml_model in ML_MODELS if ml_model["name"] in ml_model_names
         ]
-
-    _run_pipelines(context, ml_models)
 
     predictor = Predictor(
         year_range,

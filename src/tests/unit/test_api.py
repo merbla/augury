@@ -7,12 +7,14 @@ from datetime import date
 from typing import List
 import json
 
+from kedro.context import load_context
+
 from tests.fixtures.data_factories import fake_fixture_data, fake_raw_match_results_data
-from tests.fixtures.fake_estimator import create_fake_pipeline
 from augury.data_import import match_data
 from augury import api
 from augury import settings
 from augury.types import MLModelDict
+from augury.settings import BASE_DIR
 
 
 THIS_YEAR = date.today().year
@@ -29,14 +31,20 @@ FAKE_ML_MODELS: List[MLModelDict] = [
 
 
 class TestApi(TestCase):
+    @patch("augury.api.PIPELINES", ["fake"])
+    @patch("augury.api.load_context")
+    def test_run_pipelines(self, mock_load_context):
+        mock_context = load_context(BASE_DIR)
+        mock_context.run = MagicMock()
+        mock_load_context.return_value = mock_context
+
+        api.run_pipelines()
+
+        mock_context.run.assert_called_with(pipeline_name="fake")
+
     # It doesn't matter what data Predictor returns since this method doesn't check
     @patch("augury.api.Predictor.make_predictions")
     @patch("augury.api.ML_MODELS", FAKE_ML_MODELS)
-    @patch("augury.api.PIPELINE_NAMES", {"fake_data": "fake"})
-    @patch(
-        "augury.run.create_pipelines",
-        MagicMock(return_value={"fake": create_fake_pipeline()}),
-    )
     def test_make_predictions(self, mock_make_predictions):
         mock_make_predictions.return_value = fake_fixture_data(N_MATCHES, YEAR_RANGE)
         response = api.make_predictions(YEAR_RANGE, ml_model_names=["fake_estimator"])
